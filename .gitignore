@@ -120,3 +120,5 @@ lib/
 
 .vscode
 package-lock.json
+
+.env
