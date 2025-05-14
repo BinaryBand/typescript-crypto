@@ -1,5 +1,5 @@
-import { seed, message } from '../constants/tests.json';
-import pbkdf2 from '../algos/pbkdf2';
+import { seed, message } from '../src/constants/tests.json';
+import pbkdf2 from '../src/algos/pbkdf2';
 import { deepStrictEqual } from 'assert';
 
 describe('pbkdf2', () => {

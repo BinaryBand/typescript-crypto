@@ -1,6 +1,8 @@
-import { seed, message } from '../constants/tests.json';
-import { sha512, hmac512 } from '../algos/sha512';
+import { seed, message } from '../src/constants/tests.json';
+import { sha512, hmac512 } from '../src/algos/sha512';
 import { deepStrictEqual } from 'assert';
+
+type Hmac = (arg: Uint8Array) => Uint8Array;
 
 describe('sha512', () => {
   test('simple hash', () => {

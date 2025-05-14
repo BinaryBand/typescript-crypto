@@ -1,5 +1,5 @@
-import { base58Decode, base58Encode } from '../encoders/base-x';
-import { mnemonicToEntropy, entropyToMnemonic } from '../encoders/bip39';
+import { base58Decode, base58Encode } from '../src/encoders/base-x';
+import { mnemonicToEntropy, entropyToMnemonic } from '../src/encoders/bip39';
 import { deepStrictEqual } from 'assert';
 
 describe('base58', () => {
