@@ -1,6 +1,6 @@
 import { Encoder } from '@/encoders/text';
-import { sha256 } from '@/algos/sha256';
-import pbkdf2 from '@/algos/pbkdf2';
+import { sha256 } from '@/algos/hash/sha256';
+import pbkdf2 from '@/algos/hash/pbkdf2';
 import { assert } from '@/utils/misc';
 import WORD_LIST from '@/constants/word-list.json';
 
