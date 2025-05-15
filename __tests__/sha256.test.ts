@@ -1,5 +1,5 @@
 import { seed, message } from '../src/constants/tests.json';
-import { sha256, hmac256 } from '../src/algos/sha256';
+import { sha256, hmac256 } from '../src';
 import { deepStrictEqual } from 'assert';
 
 type Hmac = (arg: Uint8Array) => Uint8Array;
