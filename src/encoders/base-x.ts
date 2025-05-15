@@ -1,4 +1,4 @@
-import { assert } from '../utils/misc';
+import { assert } from '@/utils/misc';
 
 export const BASE_32: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 export const BASE_58: string = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';

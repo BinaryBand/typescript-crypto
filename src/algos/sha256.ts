@@ -1,6 +1,6 @@
 // Sha-256 hashing algorithm implementation in TypeScript
 import { shaPad256, BLOCK_SIZE_256 } from './index';
-import { concat, toBytes, toWords } from '../utils/buffer';
+import { concat, toBytes, toWords } from '@/utils/buffer';
 
 // The first 32 bits of the fractional parts of the cube roots of the first 80 primes.
 export const K: Uint32Array = new Uint32Array([

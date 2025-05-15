@@ -1,5 +1,5 @@
 import { hmac512 } from './sha512';
-import { concat } from '../utils/buffer';
+import { concat } from '@/utils/buffer';
 
 function pbkdf2(message: Uint8Array, password: Uint8Array = new Uint8Array(), iterations: number = 2048): Uint8Array {
   const outLength: number = 64;

@@ -1,8 +1,8 @@
-import { Encoder } from './text';
-import { sha256 } from '../algos/sha256';
-import pbkdf2 from '../algos/pbkdf2';
-import { assert } from '../utils/misc';
-import WORD_LIST from '../constants/word-list.json';
+import { Encoder } from '@/encoders/text';
+import { sha256 } from '@/algos/sha256';
+import pbkdf2 from '@/algos/pbkdf2';
+import { assert } from '@/utils/misc';
+import WORD_LIST from '@/constants/word-list.json';
 
 function deriveChecksum(entropyBuffer: Array<number>, keySize?: number): number {
   keySize = (entropyBuffer.length / 4) | 0;

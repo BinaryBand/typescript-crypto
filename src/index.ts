@@ -1,3 +1,5 @@
-export const myPackage = (taco = ''): string => `${taco} from my package`;
+import 'module-alias/register';
 
-console.log('Testing my package');
+import { sha256, sha512, hmac256, hmac512 } from '@/algos';
+
+export { sha256, sha512, hmac256, hmac512 };

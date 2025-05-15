@@ -1,6 +1,6 @@
 // Sha-512 hashing algorithm implementation in TypeScript
 import { shaPad512, BLOCK_SIZE_512 } from './index';
-import { add, concat, toBytes, toWords } from '../utils/buffer';
+import { add, concat, toBytes, toWords } from '@/utils/buffer';
 
 // The first 32 bits of the fractional parts of the cube roots of the first 80 primes.
 const K_32: Uint32Array = new Uint32Array([
