@@ -1,4 +1,4 @@
-import { seed, message } from '../src/constants/tests.json';
+import { seed, message } from './constants.json';
 import { pbkdf2 } from '../src';
 import { deepStrictEqual } from 'assert';
 

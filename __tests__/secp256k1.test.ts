@@ -1,4 +1,4 @@
-import { seed, message, challenge } from '../src/constants/tests.json';
+import { seed, message, challenge } from './constants.json';
 import { SECP256K1 } from '../src';
 import { deepStrictEqual } from 'assert';
 

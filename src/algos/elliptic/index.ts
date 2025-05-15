@@ -1,5 +1,28 @@
 import * as secp256k1 from './secp256k1';
+import * as nistp256 from './nistp256';
 import { assert } from '@/utils/misc';
+import { bytesToNum } from '@/utils/bn';
+
+export function arrToPoint(key: Uint8Array, P: bigint, formula: (x: bigint) => bigint): [bigint, bigint] {
+  // If 'key' is compressed, calculate 'y' from 'x'.
+  if (key.length === 32 || key[0] === 2 || key[0] === 3) {
+    assert(32 <= key.length && key.length <= 33, 'Compressed key must be of length 32 or 33.');
+
+    const x: bigint = bytesToNum(key.slice(-32));
+    const y: bigint = modPow(formula(x), ((P + 1n) / 4n) | 0n, P); // y = y² ^ (p + 1) / 4
+    return [x, y];
+  }
+  // If 'key' is not compressed.
+  else if (key.length === 64 || key[0] === 4) {
+    assert(64 <= key.length && key.length <= 65, 'Non-compressed key must be of length 64 or 65.');
+
+    const x: bigint = bytesToNum(key.slice(-64, -32));
+    const y: bigint = bytesToNum(key.slice(-32));
+    return [x, y];
+  }
+
+  throw new Error('Invalid key length or format.');
+}
 
 export function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
   let b: bigint = ((base % modulus) + modulus) % modulus;
@@ -55,3 +78,4 @@ export function mod(a: bigint, modulus: bigint): bigint {
 }
 
 export const SECP256K1 = { ...secp256k1 };
+export const NISTP256 = { ...nistp256 };

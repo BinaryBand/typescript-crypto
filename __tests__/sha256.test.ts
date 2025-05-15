@@ -1,8 +1,7 @@
-import { seed, message } from '../src/constants/tests.json';
+import { seed, message } from './constants.json';
 import { sha256, hmac256 } from '../src';
 import { deepStrictEqual } from 'assert';
-
-type Hmac = (arg: Uint8Array) => Uint8Array;
+import '../src/types/global.d.ts';
 
 describe('sha256', () => {
   test('simple hash', () => {

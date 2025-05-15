@@ -4,29 +4,11 @@ import { bytesToNum, numToBytes } from '@/utils/bn';
 import { concat } from '@/utils/buffer';
 import { assert } from '@/utils/misc';
 import { hmac256 } from '@/algos/hash';
-import { mod, modPow, invert } from './index';
-
+import { arrToPoint, mod, invert } from './index';
 import { secp256k1 } from '@/constants/elliptic.json';
 
-function arrToPoint(key: Uint8Array, P: bigint): [bigint, bigint] {
-  // If 'key' is compressed, calculate 'y' from 'x'.
-  if (key.length === 32 || key[0] === 2 || key[0] === 3) {
-    assert(32 <= key.length && key.length <= 33, 'Compressed key must be of length 32 or 33.');
-
-    const x: bigint = bytesToNum(key.slice(-32));
-    const y: bigint = modPow(x ** 3n + 7n, ((P + 1n) / 4n) | 0n, P); // y = y² ^ (p + 1) / 4
-    return [x, y];
-  }
-  // If 'key' is not compressed.
-  else if (key.length === 64 || key[0] === 4) {
-    assert(64 <= key.length && key.length <= 65, 'Non-compressed key must be of length 64 or 65.');
-
-    const x: bigint = bytesToNum(key.slice(-64, -32));
-    const y: bigint = bytesToNum(key.slice(-32));
-    return [x, y];
-  }
-
-  throw new Error('Invalid key length or format.');
+function formula(x: bigint): bigint {
+  return x ** 3n + 7n;
 }
 
 function jacobianDouble(Q: JacobianPoint, P: bigint): JacobianPoint {
@@ -34,14 +16,12 @@ function jacobianDouble(Q: JacobianPoint, P: bigint): JacobianPoint {
   const Qy: bigint = Q.y;
   const Qz: bigint = Q.z;
 
-  if (Qy === 0n) {
-    return JacobianPoint.infinity();
-  }
+  if (Qy === 0n) return JacobianPoint.infinity();
 
-  const delta: bigint = mod(3n * Qx * Qx, P); // 3X^2 (assuming A=0)
-  const gamma: bigint = mod(Qy * Qy, P); // Y^2
-  const beta: bigint = mod(Qx * gamma, P); // X * Y^2
-  const alpha: bigint = mod(delta * delta - 8n * beta, P); // lambda^2 - 8*beta
+  const delta: bigint = mod(3n * Qx * Qx, P); // 3X² (assuming A=0)
+  const gamma: bigint = mod(Qy * Qy, P); // Y²
+  const beta: bigint = mod(Qx * gamma, P); // X * Y²
+  const alpha: bigint = mod(delta * delta - 8n * beta, P); // lambda² - 8 * beta
 
   const X3: bigint = mod(alpha, P);
   const Z3: bigint = mod(2n * Qy * Qz, P); // 2YZ
@@ -52,11 +32,8 @@ function jacobianDouble(Q: JacobianPoint, P: bigint): JacobianPoint {
 
 function jacobianAdd(Q: JacobianPoint, R: JacobianPoint, P: bigint): JacobianPoint {
   // Handle cases involving the point at infinity
-  if (Q.isInfinity()) {
-    return R;
-  } else if (R.isInfinity()) {
-    return Q;
-  }
+  if (Q.isInfinity()) return R;
+  if (R.isInfinity()) return Q;
 
   // Use the general addition formula variables
   const Qx: bigint = Q.x;
@@ -80,16 +57,10 @@ function jacobianAdd(Q: JacobianPoint, R: JacobianPoint, P: bigint): JacobianPoi
 
   // If H === 0, the points have the same X coordinate (in affine)
   if (H === 0n) {
-    // If Rj === 0, points are the same, perform doubling
-    if (Rj === 0n) {
-      return jacobianDouble(Q, P);
-    } else {
-      // If Rj != 0, points have opposite Y coordinates, result is infinity
-      return JacobianPoint.infinity();
-    }
+    if (Rj === 0n) return jacobianDouble(Q, P); // If Rj === 0, points are the same, perform doubling
+    return JacobianPoint.infinity(); // If Rj != 0, points have opposite Y coordinates, result is infinity
   }
 
-  // General case: distinct points, not opposite
   const H2: bigint = mod(H * H, P);
   const H3: bigint = mod(H * H2, P);
   const U1H2: bigint = mod(U1 * H2, P);
@@ -109,11 +80,11 @@ class SECP256K1 implements IPoint {
   constructor(public x: bigint, public y: bigint) {}
 
   public static get G(): SECP256K1 {
-    return new SECP256K1(...arrToPoint(new Uint8Array(secp256k1.G), SECP256K1.P));
+    return new SECP256K1(...arrToPoint(new Uint8Array(secp256k1.G), SECP256K1.P, formula));
   }
 
   public static fromBytes(bytes: Uint8Array): SECP256K1 {
-    return new SECP256K1(...arrToPoint(bytes, SECP256K1.P));
+    return new SECP256K1(...arrToPoint(bytes, SECP256K1.P, formula));
   }
 
   public static infinity(): SECP256K1 {
@@ -124,9 +95,7 @@ class SECP256K1 implements IPoint {
     const Qx: bigint = this.x;
     const Qy: bigint = this.y;
 
-    if (Qy === 0n) {
-      return new SECP256K1(0n, 0n);
-    }
+    if (Qy === 0n) return new SECP256K1(0n, 0n);
 
     const numerator: bigint = mod(3n * Qx ** 2n, SECP256K1.P);
     const denominator: bigint = mod(2n * Qy, SECP256K1.P);
@@ -178,9 +147,7 @@ class SECP256K1 implements IPoint {
   public multiply(k: bigint): SECP256K1 {
     let S: JacobianPoint = new JacobianPoint(this.x, this.y, 1n);
     S = S.multiply(k);
-
-    const O: SECP256K1 = S.toAffine();
-    return O;
+    return S.toAffine();
   }
 
   public toArray(isCompressed: boolean = true): Uint8Array {
@@ -224,14 +191,11 @@ class JacobianPoint extends SECP256K1 {
     let S: JacobianPoint = new JacobianPoint(1n, 1n, 0n);
     let Q: JacobianPoint = new JacobianPoint(this.x, this.y, 1n);
 
-    let scalar: bigint = k;
-    while (scalar > 0n) {
+    for (let scalar: bigint = k; scalar > 0n; scalar >>= 1n) {
       if (scalar & 1n) {
         S = S.add(Q);
       }
-
       Q = Q.double();
-      scalar >>= 1n;
     }
 
     return S;
@@ -251,6 +215,8 @@ class JacobianPoint extends SECP256K1 {
     return new SECP256K1(x, y);
   }
 }
+
+/************************************************************************/
 
 export function tweakAdd(sk: Uint8Array, tweak: Uint8Array): Uint8Array {
   const secretKey: bigint = bytesToNum(sk);
