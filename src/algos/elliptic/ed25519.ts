@@ -1,5 +1,4 @@
-// y² = x³ - 3x + 41058363725152142129326129780047268409114441015993725554835256314039467401291
-// https://datatracker.ietf.org/doc/html/rfc5903
+// TODO: This is a template and does not work by design. Needs to be implemented.
 import { bytesToNum, numToBytes } from '@/utils/bn';
 import { concat } from '@/utils/buffer';
 import { assert } from '@/utils/misc';
