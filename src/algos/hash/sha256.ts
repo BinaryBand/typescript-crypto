@@ -1,7 +1,7 @@
 // Sha-256 hashing algorithm implementation in TypeScript
 import { BLOCK_SIZE, shaPad, rotateRight } from './index';
 import { concat, toBytes, toWords } from '@/utils/buffer';
-import { K_32, H_32 } from '@/constants/sha.json';
+import { K_32, H_32 } from '@/constants/hash.json';
 
 // The first 32 bits of the fractional parts of the cube roots of the first 80 primes.
 const K: Uint32Array = new Uint32Array(K_32);
@@ -11,7 +11,7 @@ const H: Uint32Array = new Uint32Array(H_32);
 
 function ch(x: number, y: number, z: number): number {
   const c0: number = x & y;
-  const c1: number = x ^ 0xffffffff;
+  const c1: number = ~x;
   const c2: number = c1 & z;
   return c0 ^ c2;
 }

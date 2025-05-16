@@ -1,9 +1,13 @@
 import { seed, message, challenge } from './constants.json';
-import { NISTP256 } from '../src';
+import { P256 } from '../src';
 import { deepStrictEqual } from 'assert';
+import { p256 } from '@noble/curves/nist';
 
-describe('secp256k1', () => {
-  const publicKey: Uint8Array = NISTP256.getPublicKey(new Uint8Array(seed));
+describe('p256', () => {
+  const privateKey: Uint8Array = new Uint8Array(seed);
+  const publicKey: Uint8Array = P256.getPublicKey(privateKey);
+  const messageBuffer: Uint8Array = new Uint8Array(message);
+  const challengeBuffer: Uint8Array = new Uint8Array(challenge);
 
   test('public key', () => {
     deepStrictEqual(
@@ -15,10 +19,13 @@ describe('secp256k1', () => {
     );
   });
 
-  test('signature', () => {
-    const msg: Uint8Array = new Uint8Array(message);
+  test('control public key', () => {
+    const control: Uint8Array = p256.getPublicKey(privateKey, true);
+    deepStrictEqual(Array.from(control), Array.from(publicKey));
+  });
 
-    const signature: Uint8Array = NISTP256.sign(msg, new Uint8Array(seed), new Uint8Array(challenge));
+  test('signature', () => {
+    const signature: Uint8Array = P256.sign(messageBuffer, privateKey, challengeBuffer);
 
     deepStrictEqual(
       Array.from(signature),
@@ -29,9 +36,15 @@ describe('secp256k1', () => {
       ]
     );
 
-    expect(NISTP256.verify(msg, signature, publicKey)).toBe(true);
+    expect(P256.verify(messageBuffer, signature, publicKey)).toBe(true);
+    expect(p256.verify(signature, messageBuffer, publicKey)).toBe(true);
+
+    const controlSignature: Uint8Array = p256.sign(messageBuffer, privateKey).toCompactRawBytes();
+    expect(P256.verify(messageBuffer, controlSignature, publicKey)).toBe(true);
+    expect(p256.verify(controlSignature, messageBuffer, publicKey)).toBe(true);
 
     signature[0] ^= 0x01;
-    expect(NISTP256.verify(msg, signature, publicKey)).toBe(false);
+    expect(P256.verify(messageBuffer, signature, publicKey)).toBe(false);
+    expect(p256.verify(signature, messageBuffer, publicKey)).toBe(false);
   });
 });

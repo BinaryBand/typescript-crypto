@@ -1,12 +1,15 @@
 import { seed, message } from './constants.json';
-import { sha512, hmac512 } from '../src';
+import { sha512, hmac512, sha1 } from '../src';
 import { deepStrictEqual } from 'assert';
+import crypto from 'crypto';
 import '../src/types/global.d.ts';
 
 describe('sha512', () => {
-  test('simple hash', () => {
-    const hash: Uint8Array = sha512(new Uint8Array(seed));
+  const seedBuffer: Buffer = Buffer.from(seed);
+  const messageBuffer: Buffer = Buffer.from(message);
 
+  test('simple hash', () => {
+    const hash: Uint8Array = sha512(seedBuffer);
     deepStrictEqual(
       Array.from(hash),
       [
@@ -17,10 +20,20 @@ describe('sha512', () => {
     );
   });
 
-  test('simple hmac', () => {
-    const hmac: Hmac = hmac512(new Uint8Array(seed));
-    const result: Uint8Array = hmac(new Uint8Array(message));
+  test('controlled hash', () => {
+    const controlFunction = (payload: Uint8Array) => crypto.createHash('sha512').update(payload).digest();
 
+    let current: Uint8Array = seedBuffer;
+    for (let i: number = 0; i < 1000; i++) {
+      const control: Buffer = controlFunction(current);
+      current = sha512(current);
+      deepStrictEqual(Array.from(current), Array.from(control));
+    }
+  });
+
+  test('simple hmac', () => {
+    const hmac: Hmac = hmac512(seedBuffer);
+    const result: Uint8Array = hmac(messageBuffer);
     deepStrictEqual(
       Array.from(result),
       [
@@ -29,5 +42,20 @@ describe('sha512', () => {
         171, 250, 241, 11, 162, 232, 27, 64, 189, 203, 237, 74, 126, 54, 159,
       ]
     );
+  });
+
+  test('controlled hmac', () => {
+    const controlFunction = (key: Uint8Array, payload: Uint8Array) =>
+      crypto.createHmac('sha512', key).update(payload).digest();
+
+    let currentKey: Uint8Array = seedBuffer;
+    let currentPayload: Uint8Array = messageBuffer;
+
+    for (let i: number = 0; i < 1000; i++) {
+      const control: Buffer = controlFunction(currentKey, currentPayload);
+      currentKey = hmac512(currentKey)(currentPayload);
+      currentPayload = sha1(currentKey);
+      deepStrictEqual(Array.from(currentKey), Array.from(control));
+    }
   });
 });

@@ -1,3 +1,4 @@
+import blake2b from './blake2b';
 import { sha1, hmac1 } from './sha1';
 import { sha256, hmac256 } from './sha256';
 import { sha512, hmac512 } from './sha512';
@@ -34,7 +35,7 @@ export function rotateRight(x: number, y: number): number {
 
 export function ch(x: number, y: number, z: number): number {
   const c0: number = x & y;
-  const c1: number = x ^ 0xffffffff;
+  const c1: number = ~x;
   const c2: number = c1 & z;
   return c0 ^ c2;
 }
@@ -50,4 +51,4 @@ export function shaPad512(message: Uint8Array): Uint8Array {
   return shaPad(message, BLOCK_SIZE_512);
 }
 
-export { sha1, hmac1, sha256, hmac256, sha512, hmac512, pbkdf2 };
+export { blake2b, sha1, hmac1, sha256, hmac256, sha512, hmac512, pbkdf2 };

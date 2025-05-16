@@ -1,11 +1,14 @@
 import { seed, message } from './constants.json';
-import { pbkdf2 } from '../src';
+import { pbkdf2, sha1 } from '../src';
 import { deepStrictEqual } from 'assert';
+import crypto from 'crypto';
 
 describe('pbkdf2', () => {
-  test('simple hash', () => {
-    const hash: Uint8Array = pbkdf2(new Uint8Array(seed), new Uint8Array(message));
+  const seedBuffer: Buffer = Buffer.from(seed);
+  const saltBuffer: Buffer = Buffer.from(message);
 
+  test('simple hash', () => {
+    const hash: Uint8Array = pbkdf2(seedBuffer, saltBuffer, 2048);
     deepStrictEqual(
       Array.from(hash),
       [
@@ -14,5 +17,21 @@ describe('pbkdf2', () => {
         30, 86, 229, 111, 83, 210, 48, 92, 30, 219, 89, 24, 15, 237, 193, 58,
       ]
     );
+  });
+
+  test('control hash', () => {
+    const iterations: number = 100;
+    const controlFunction = (payload: Uint8Array, seed: Uint8Array) =>
+      crypto.pbkdf2Sync(payload, seed, iterations, 64, 'sha512');
+
+    let currentPassword: Uint8Array = seedBuffer;
+    let currentSalt: Uint8Array = saltBuffer;
+
+    for (let i: number = 0; i < 100; i++) {
+      const control: Buffer = controlFunction(currentPassword, currentSalt);
+      currentPassword = pbkdf2(currentPassword, currentSalt, iterations);
+      currentSalt = sha1(currentPassword);
+      deepStrictEqual(Array.from(control), Array.from(currentPassword));
+    }
   });
 });

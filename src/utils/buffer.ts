@@ -29,9 +29,14 @@ export function concat(...arrays: (number | ArrayLike<number>)[]): Uint8Array {
   return out;
 }
 
-export function add(arr: Uint32Array, j: number, upper: number, lower: number): void {
-  arr[j + 1] += lower;
-  arr[j] += upper + (arr[j + 1] >>> 0 < lower >>> 0 ? 1 : 0);
+export function add(v: Uint32Array, a: number, b0: number, b1: number): void {
+  v[a + 1] += b1;
+
+  if (v[a + 1] >>> 0 < b1 >>> 0) {
+    v[a]++;
+  }
+
+  v[a] += b0;
 }
 
 export function toBytes(arr: Uint32Array): Uint8Array {
@@ -47,12 +52,11 @@ export function toBytes(arr: Uint32Array): Uint8Array {
   return bytes;
 }
 
-export function toWords(message: Uint8Array): Uint32Array {
-  const words: Uint32Array = new Uint32Array(Math.ceil(message.length / 4));
+export function toWords(arr: Uint8Array): Uint32Array {
+  const words: Uint32Array = new Uint32Array(Math.ceil(arr.length / 4));
   for (let i: number = 0; i < words.length; i++) {
-    const j: number = words.length - i - 1;
-    const k: number = message.length - i * 4 - 1;
-    words[j] = (message[k - 3] << 24) | (message[k - 2] << 16) | (message[k - 1] << 8) | message[k];
+    const j: number = i * 4;
+    words[i] = (arr[j] << 24) | (arr[j + 1] << 16) | (arr[j + 2] << 8) | arr[j + 3];
   }
 
   return words;

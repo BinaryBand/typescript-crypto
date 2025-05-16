@@ -1,9 +1,13 @@
 import { seed, message, challenge } from './constants.json';
 import { SECP256K1 } from '../src';
 import { deepStrictEqual } from 'assert';
+import { secp256k1 } from '@noble/curves/secp256k1';
 
 describe('secp256k1', () => {
-  const publicKey: Uint8Array = SECP256K1.getPublicKey(new Uint8Array(seed));
+  const privateKey: Uint8Array = new Uint8Array(seed);
+  const publicKey: Uint8Array = SECP256K1.getPublicKey(privateKey);
+  const messageBuffer: Uint8Array = new Uint8Array(message);
+  const challengeBuffer: Uint8Array = new Uint8Array(challenge);
 
   test('public key', () => {
     deepStrictEqual(
@@ -16,9 +20,7 @@ describe('secp256k1', () => {
   });
 
   test('signature', () => {
-    const msg: Uint8Array = new Uint8Array(message);
-
-    const signature: Uint8Array = SECP256K1.sign(msg, new Uint8Array(seed), new Uint8Array(challenge));
+    const signature: Uint8Array = SECP256K1.sign(messageBuffer, privateKey, challengeBuffer);
 
     deepStrictEqual(
       Array.from(signature),
@@ -29,9 +31,15 @@ describe('secp256k1', () => {
       ]
     );
 
-    expect(SECP256K1.verify(msg, signature, publicKey)).toBe(true);
+    expect(SECP256K1.verify(messageBuffer, signature, publicKey)).toBe(true);
+    expect(secp256k1.verify(signature, messageBuffer, publicKey)).toBe(true);
+
+    const controlSignature: Uint8Array = secp256k1.sign(messageBuffer, privateKey).toCompactRawBytes();
+    expect(SECP256K1.verify(messageBuffer, controlSignature, publicKey)).toBe(true);
+    expect(secp256k1.verify(controlSignature, messageBuffer, publicKey)).toBe(true);
 
     signature[0] ^= 0x01;
-    expect(SECP256K1.verify(msg, signature, publicKey)).toBe(false);
+    expect(SECP256K1.verify(messageBuffer, signature, publicKey)).toBe(false);
+    expect(secp256k1.verify(signature, messageBuffer, publicKey)).toBe(false);
   });
 });

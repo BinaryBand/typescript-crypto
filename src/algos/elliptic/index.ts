@@ -78,4 +78,4 @@ export function mod(a: bigint, modulus: bigint): bigint {
 }
 
 export const SECP256K1 = { ...secp256k1 };
-export const NISTP256 = { ...nistp256 };
+export const P256 = { ...nistp256 };

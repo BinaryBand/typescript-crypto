@@ -1,14 +1,14 @@
-import { hmac512 } from './sha512';
 import { concat } from '@/utils/buffer';
+import { hmac512 } from '@/algos/hash';
 
-function pbkdf2(message: Uint8Array, password: Uint8Array = new Uint8Array(), iterations: number = 2048): Uint8Array {
+function pbkdf2(p: Uint8Array, s: Uint8Array = new Uint8Array(), iterations: number = 2048): Uint8Array {
   const outLength: number = 64;
   const out: Uint8Array = new Uint8Array(outLength);
 
-  const index: Uint8Array = new Uint8Array([0, 0, 0, 0x01]);
-  const payload: Uint8Array = concat(password, index);
+  const index = new Uint8Array([0, 0, 0, 0x01]);
+  const payload: Uint8Array = concat(s, index);
 
-  const hmac: Hmac = hmac512(message);
+  const hmac: (arg: Uint8Array) => Uint8Array = hmac512(p);
   const block: Uint8Array = hmac(payload);
 
   const blockWordsLength: number = 64;

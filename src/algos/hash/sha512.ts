@@ -1,7 +1,7 @@
 // Sha-512 hashing algorithm implementation in TypeScript
 import { BLOCK_SIZE_512, shaPad512 } from './index';
 import { add, concat, toBytes, toWords } from '@/utils/buffer';
-import { K_32, H_32, K_64, H_64 } from '@/constants/sha.json';
+import { K_32, H_32, K_64, H_64 } from '@/constants/hash.json';
 
 const K: Uint32Array = new Uint32Array(160);
 for (let i: number = 0; i < 160; i++) {
@@ -66,9 +66,9 @@ function update(out: Uint32Array, message: Uint32Array, start: number): void {
     add(W, j, H2[14], H2[15]); // W[i] += h;
     add(W, j, K[j], K[j + 1]); // W[i] += K[i];
 
-    // W[i] += (e & f) ^ (e ^ 0xffffffffffffffff) & g;
-    t0 = H2[8] ^ 0xffffffff;
-    t1 = H2[9] ^ 0xffffffff;
+    // W[i] += (e & f) ^ ~e & g;
+    t0 = ~H2[8];
+    t1 = ~H2[9];
     t0 &= H2[12];
     t1 &= H2[13];
     t0 ^= H2[8] & H2[10];
