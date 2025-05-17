@@ -1,58 +1,25 @@
 // TODO: This is a template and does not work by design. Needs to be implemented.
+// -x² + y² = 1 + d * x² * y²  (mod p)
+import { mod, invert } from './index';
+import { sha512 } from '@/algos/hash';
 import { bytesToNum, numToBytes } from '@/utils/bn';
-import { concat } from '@/utils/buffer';
-import { assert } from '@/utils/misc';
-import { hmac256 } from '@/algos/hash';
-import { arrToPoint, mod, invert } from './index';
+import { assert } from 'console';
+import CurvePoint from './curve-point';
 
-function formula(x: bigint): bigint {
-  return x ** 3n - 3n * x + 41058363725152142129326129780047268409114441015993725554835256314039467401291n;
-}
-
-const G = {
-  x: 15112221349535400772501151409588531511454012693041857206046113283949847762202n,
-  y: 46316835694926478169428394003475163141307993866256225615783033603165251855960n,
-};
-
-class ED25519 implements IPoint {
-  public static readonly P: bigint = 2n ** 255n - 19n;
-  public static readonly N: bigint = 2n ** 252n + 27742317777372353535851937790883648493n;
-
-  constructor(public x: bigint, public y: bigint) {}
+class ED25519 extends CurvePoint {
+  public static readonly P: bigint = (1n << 255n) - 19n;
+  public static readonly N: bigint = (1n << 252n) + 0x14def9dea2f79cd65812631a5cf5d3edn;
+  public static readonly D: bigint = -0x9841adfc9311d490018c7338bf8688861767ff8ff5b2bebe27548a14b235ec8fed91n;
 
   public static get G(): ED25519 {
-    return new ED25519(G.x, G.y);
-  }
-
-  public static fromBytes(bytes: Uint8Array): ED25519 {
-    return new ED25519(...arrToPoint(bytes, ED25519.P, formula));
-  }
-
-  public isInfinity(): boolean {
-    return this.x === 0n && this.y === 0n;
-  }
-
-  public static infinity(): ED25519 {
-    return new ED25519(0n, 0n);
+    return new ED25519(
+      0x216936d3cd6e53fec0a4e231fdd6dc5c692cc7609525a7b2c9562d608f25d51an,
+      0x6666666666666666666666666666666666666666666666666666666666666658n
+    );
   }
 
   public double(): ED25519 {
-    const Qx: bigint = this.x;
-    const Qy: bigint = this.y;
-
-    if (Qy === 0n) return new ED25519(0n, 0n);
-
-    const numerator: bigint = mod(3n * Qx ** 2n - 3n, ED25519.P);
-    const denominator: bigint = mod(2n * Qy, ED25519.P);
-
-    // Denominator should not be zero for a non-infinity point with Qy != 0
-    assert(denominator !== 0n, 'Doubling error: denominator is zero.');
-
-    const m: bigint = mod(numerator * invert(denominator, ED25519.P), ED25519.P);
-    const x: bigint = mod(m ** 2n - Qx * 2n, ED25519.P);
-    const y: bigint = mod(m * mod(Qx - x, ED25519.P) - Qy, ED25519.P);
-
-    return new ED25519(x, y);
+    return this.unsafeAdd(this);
   }
 
   private unsafeAdd(R: ED25519): ED25519 {
@@ -61,15 +28,18 @@ class ED25519 implements IPoint {
     const Rx: bigint = R.x;
     const Ry: bigint = R.y;
 
-    // Calculate slope m = (Ry - Qy) / (Rx - Qx)
-    const deltaX: bigint = mod(Rx - Qx, ED25519.P);
-    const deltaY: bigint = mod(Ry - Qy, ED25519.P);
+    const delta: bigint = ED25519.D * Qx * Rx * Qy * Ry;
 
-    assert(deltaX !== 0n, 'Addition error: deltaX is zero.');
+    const numeratorX: bigint = mod(Qx * Ry + Qy * Rx, ED25519.P);
+    const denominatorX: bigint = invert(1n + delta, ED25519.P);
+    assert(denominatorX !== 0n, 'Addition error: denominator is zero.');
 
-    const m: bigint = mod(deltaY * invert(deltaX, ED25519.P), ED25519.P);
-    const x: bigint = mod(m ** 2n - Qx - R.x, ED25519.P);
-    const y: bigint = mod(m * (Qx - x) - Qy, ED25519.P);
+    const numeratorY: bigint = mod(Qy * Ry + Qx * Rx, ED25519.P);
+    const denominatorY: bigint = invert(1n - delta, ED25519.P);
+    assert(denominatorY !== 0n, 'Addition error: denominator is zero.');
+
+    const x: bigint = mod(numeratorX * denominatorX, ED25519.P);
+    const y: bigint = mod(numeratorY * denominatorY, ED25519.P);
 
     return new ED25519(x, y);
   }
@@ -80,7 +50,7 @@ class ED25519 implements IPoint {
     if (Q.x === R.x && Q.y === R.y) {
       return Q.double();
     } else if (Q.x === R.x && Q.y === -R.y) {
-      return ED25519.infinity();
+      return new ED25519(0n, 0n);
     } else if (Q.x === 0n || Q.y === 0n) {
       return new ED25519(R.x, R.y);
     } else if (R.x !== 0n && R.y !== 0n) {
@@ -91,7 +61,7 @@ class ED25519 implements IPoint {
   }
 
   public multiply(k: bigint): ED25519 {
-    if (k === 0n) return ED25519.infinity();
+    if (k === 0n) return new ED25519(0n, 0n);
 
     let Q: ED25519 = new ED25519(this.x, this.y);
     let S: ED25519 = new ED25519(0n, 0n);
@@ -100,40 +70,22 @@ class ED25519 implements IPoint {
       if (scalar & 1n) {
         S = S.add(Q);
       }
-      Q = Q.double();
+      Q = Q.add(Q);
     }
 
     return S;
-  }
-
-  public toArray(isCompressed: boolean = true): Uint8Array {
-    if (this.isInfinity()) {
-      return new Uint8Array(0);
-    }
-
-    let out: Uint8Array;
-    if (isCompressed) {
-      const header: number = this.y & 1n ? 3 : 2;
-      const bulk: Uint8Array = numToBytes(this.x);
-      out = concat(header, bulk);
-    } else {
-      const lhs: Uint8Array = numToBytes(this.x);
-      const rhs: Uint8Array = numToBytes(this.y);
-      out = concat(1, lhs, rhs);
-    }
-
-    return out;
   }
 }
 
 /************************************************************************/
 
-export function getPublicKey(sk: Uint8Array, isCompressed: boolean = false): Uint8Array {
-  const num: bigint = bytesToNum(sk);
-  const secretKey: bigint = mod(num, ED25519.P);
+export function getPublicKey(sk: Uint8Array): Uint8Array {
+  const head: Uint8Array = sha512(sk).slice(0, 32);
+  head[0] &= 248;
+  head[31] &= 127;
+  head[31] |= 64;
 
-  const G: ED25519 = ED25519.G; // Get the static base point G
-  const publicKeyPoint: ED25519 = G.multiply(secretKey); // k * G
-
-  return publicKeyPoint.toArray(isCompressed);
+  const secretKey: bigint = mod(bytesToNum(head, 'le'), ED25519.N);
+  const publicKeyPoint: ED25519 = ED25519.G.multiply(secretKey); // k * G
+  return numToBytes(publicKeyPoint.y, 32, 'le');
 }

@@ -1,7 +1,7 @@
-import { seed, message, challenge } from './constants.json';
 import { P256 } from '../src';
-import { deepStrictEqual } from 'assert';
 import { p256 } from '@noble/curves/nist';
+import { deepStrictEqual } from 'assert';
+import { seed, message, challenge } from './constants.json';
 
 describe('p256', () => {
   const privateKey: Uint8Array = new Uint8Array(seed);

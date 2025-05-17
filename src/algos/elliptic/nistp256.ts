@@ -1,4 +1,4 @@
-// y² = x³ - 3x + 41058363725152142129326129780047268409114441015993725554835256314039467401291
+// y² = x³ - 3x + 41058363725152142129326129780047268409114441015993725554835256314039467401291  (mod p)
 // https://datatracker.ietf.org/doc/html/rfc5903
 import { bytesToNum, numToBytes } from '@/utils/bn';
 import { concat } from '@/utils/buffer';
@@ -6,31 +6,22 @@ import { assert } from '@/utils/misc';
 import { hmac256 } from '@/algos/hash';
 import { arrToPoint, mod, invert } from './index';
 import { nistp256 } from '@/constants/elliptic.json';
+import CurvePoint from './curve-point';
 
 function formula(x: bigint): bigint {
-  return x ** 3n - 3n * x + 41058363725152142129326129780047268409114441015993725554835256314039467401291n;
+  return x ** 3n - 3n * x + 0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604bn;
 }
 
-class NISTP256 implements IPoint {
+class NISTP256 extends CurvePoint {
   public static readonly P: bigint = (1n << 256n) - (1n << 224n) + (1n << 192n) + (1n << 96n) - 1n;
   public static readonly N: bigint = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n;
 
-  constructor(public x: bigint, public y: bigint) {}
-
   public static get G(): NISTP256 {
-    return new NISTP256(...arrToPoint(new Uint8Array(nistp256.G), NISTP256.P, formula));
+    return NISTP256.fromBytes(new Uint8Array(nistp256.G));
   }
 
   public static fromBytes(bytes: Uint8Array): NISTP256 {
     return new NISTP256(...arrToPoint(bytes, NISTP256.P, formula));
-  }
-
-  public isInfinity(): boolean {
-    return this.x === 0n && this.y === 0n;
-  }
-
-  public static infinity(): NISTP256 {
-    return new NISTP256(0n, 0n);
   }
 
   public double(): NISTP256 {
@@ -42,7 +33,6 @@ class NISTP256 implements IPoint {
     const numerator: bigint = mod(3n * Qx ** 2n - 3n, NISTP256.P);
     const denominator: bigint = mod(2n * Qy, NISTP256.P);
 
-    // Denominator should not be zero for a non-infinity point with Qy != 0
     assert(denominator !== 0n, 'Doubling error: denominator is zero.');
 
     const m: bigint = mod(numerator * invert(denominator, NISTP256.P), NISTP256.P);
@@ -59,12 +49,12 @@ class NISTP256 implements IPoint {
     const Ry: bigint = R.y;
 
     // Calculate slope m = (Ry - Qy) / (Rx - Qx)
-    const deltaX: bigint = mod(Rx - Qx, NISTP256.P);
-    const deltaY: bigint = mod(Ry - Qy, NISTP256.P);
+    const numerator: bigint = mod(Rx - Qx, NISTP256.P);
+    const denominator: bigint = mod(Ry - Qy, NISTP256.P);
 
-    assert(deltaX !== 0n, 'Addition error: deltaX is zero.');
+    assert(denominator !== 0n, 'Addition error: denominator is zero.');
 
-    const m: bigint = mod(deltaY * invert(deltaX, NISTP256.P), NISTP256.P);
+    const m: bigint = mod(denominator * invert(numerator, NISTP256.P), NISTP256.P);
     const x: bigint = mod(m ** 2n - Qx - R.x, NISTP256.P);
     const y: bigint = mod(m * (Qx - x) - Qy, NISTP256.P);
 
@@ -77,7 +67,7 @@ class NISTP256 implements IPoint {
     if (Q.x === R.x && Q.y === R.y) {
       return Q.double();
     } else if (Q.x === R.x && Q.y === -R.y) {
-      return NISTP256.infinity();
+      return new NISTP256(0n, 0n);
     } else if (Q.x === 0n || Q.y === 0n) {
       return new NISTP256(R.x, R.y);
     } else if (R.x !== 0n && R.y !== 0n) {
@@ -88,7 +78,7 @@ class NISTP256 implements IPoint {
   }
 
   public multiply(k: bigint): NISTP256 {
-    if (k === 0n) return NISTP256.infinity();
+    if (k === 0n) return new NISTP256(0n, 0n);
 
     let Q: NISTP256 = new NISTP256(this.x, this.y);
     let S: NISTP256 = new NISTP256(0n, 0n);
@@ -101,25 +91,6 @@ class NISTP256 implements IPoint {
     }
 
     return S;
-  }
-
-  public toArray(isCompressed: boolean = true): Uint8Array {
-    if (this.isInfinity()) {
-      return new Uint8Array(0);
-    }
-
-    let out: Uint8Array;
-    if (isCompressed) {
-      const header: number = this.y & 1n ? 3 : 2;
-      const bulk: Uint8Array = numToBytes(this.x);
-      out = concat(header, bulk);
-    } else {
-      const lhs: Uint8Array = numToBytes(this.x);
-      const rhs: Uint8Array = numToBytes(this.y);
-      out = concat(1, lhs, rhs);
-    }
-
-    return out;
   }
 }
 
@@ -168,22 +139,15 @@ export function verify(msg: Uint8Array, sig: Uint8Array, pk: Uint8Array): boolea
   // Probably forged, protect against fault attacks.
   assert(message !== 0n, 'Message must be non-zero.');
 
-  let PK: NISTP256 = NISTP256.fromBytes(pk);
-  let G: NISTP256 = NISTP256.G;
-
+  const PK: NISTP256 = NISTP256.fromBytes(pk);
   const invS: bigint = invert(s, NISTP256.N);
-  G = G.multiply(message * invS);
-  PK = PK.multiply(r * invS);
-  G = G.add(PK);
+  let G: NISTP256 = NISTP256.G.multiply(message * invS);
+  G = G.add(PK.multiply(r * invS));
   return mod(G.x, NISTP256.N) === r;
 }
 
 export function getPublicKey(sk: Uint8Array, isCompressed: boolean = true): Uint8Array {
-  const num: bigint = bytesToNum(sk);
-  const secretKey: bigint = mod(num, NISTP256.P);
-
-  const G: NISTP256 = NISTP256.G; // Get the static base point G
-  const publicKeyPoint: NISTP256 = G.multiply(secretKey); // k * G
-
+  const secretKey: bigint = mod(bytesToNum(sk), NISTP256.P);
+  const publicKeyPoint: NISTP256 = NISTP256.G.multiply(secretKey); // k * G
   return publicKeyPoint.toArray(isCompressed);
 }
